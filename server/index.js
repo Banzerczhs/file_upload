@@ -108,24 +108,36 @@ const app = https.createServer(
                         createChunkFile({
                             chunk: fileInfo.chunk,
                             name: path.resolve(chunkDir, fileInfo.hash)
-                        });
-
-                        res.writeHead(200, {
-                            'Content-Type': 'application/json;charset=utf-8'
-                        });
-                        res.end(
-                            JSON.stringify({
-                                data: {
-                                    filename: fileInfo.filename,
-                                    hash: fileInfo.hash,
-                                    ext: fileInfo.ext
-                                },
-                                status: {
-                                    code: 0,
-                                    msg: 'Upload Success!'
-                                }
-                            })
-                        );
+                        }).then(()=>{
+                            res.writeHead(200, {
+                                'Content-Type': 'application/json;charset=utf-8'
+                            });
+                            res.end(
+                                JSON.stringify({
+                                    data: {
+                                        filename: fileInfo.filename,
+                                        hash: fileInfo.hash,
+                                        ext: fileInfo.ext
+                                    },
+                                    status: {
+                                        code: 0,
+                                        msg: 'Upload Success!'
+                                    }
+                                })
+                            );
+                        }).catch((err)=>{
+                            res.writeHead(200, {
+                                'Content-Type': 'application/json;charset=utf-8'
+                            });
+                            res.end(
+                                JSON.stringify({
+                                    status: {
+                                        code: 1001,
+                                        msg: 'Upload Failed!'
+                                    }
+                                })
+                            );
+                        })                        
                     })
                     .catch((err) => {
                         console.log('----upload Failed-----',err);
