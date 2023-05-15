@@ -153,7 +153,6 @@ const abortUpload = ()=>{
 }
 
 const beforeUpload=async ()=>{
-    console.log('---123---',uploadFileChunks);
     hashPercentage.value=0;
     uploadFileChunks.forEach(chunk=>{
         chunk.percentage=0;
