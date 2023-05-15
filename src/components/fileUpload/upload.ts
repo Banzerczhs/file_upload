@@ -1,7 +1,5 @@
-import axios, { AxiosResponseTransformer } from "axios";
+import axios from "axios";
 import type {AxiosProgressEvent} from "axios";
-
-let hashWorker=new Worker('./hash.js');
 
 export type rawChunk={
     chunk: Blob,
@@ -42,6 +40,7 @@ export const createFileChunk=function(file:File,size:number):Array<rawChunk>{
 
 
 export const createFileHash=function(filesChunks:Array<rawChunk>,setProgress:(percentage:number)=>void):Promise<string>{
+    let hashWorker=new Worker('./hash.js');
     hashWorker.postMessage({filesChunks});
 
     return new Promise((resolve,reject)=>{
@@ -66,6 +65,15 @@ export const uploadFileHandler=async function(config:{
     success?:(data:any)=>void
 }){
     let {fileQueue,createProgressHandler,success}=config;
+    if(!fileQueue.length){
+        return Promise.resolve([{
+            data : {
+                status : {
+                    code : 0
+                }
+            }
+        }]);
+    }
     let ps=fileQueue.map((item)=>{
         let formData=new FormData();
         formData.append('chunk',item.chunk);

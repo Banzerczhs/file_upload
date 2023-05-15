@@ -61,7 +61,7 @@ let rawFileName=ref('');
 let fileInfo={
     splitFlag : '&-&',
     ext : '',
-    chunkSize : 1000 * 6000,
+    chunkSize : 1024 * 6000,
     hash : ''
 }
 
@@ -128,6 +128,7 @@ const restoreUpload = ()=>{
                     item.controller=new AbortController();
                     return true;
                 }else{
+                    item.percentage=100;
                     return false;
                 }
             });
@@ -142,14 +143,17 @@ const restoreUpload = ()=>{
 }
 
 const abortUpload = ()=>{
-    uploadFileChunks.forEach(item=>{
-        if(item.controller){
-            item.controller.abort();
-        }
-    })
+    if(fileInfo.hash){
+        uploadFileChunks.forEach(item=>{
+            if(item.controller){
+                item.controller.abort();
+            }
+        })
+    }
 }
 
 const beforeUpload=async ()=>{
+    console.log('---123---',uploadFileChunks);
     hashPercentage.value=0;
     uploadFileChunks.forEach(chunk=>{
         chunk.percentage=0;
@@ -177,19 +181,19 @@ const beforeUpload=async ()=>{
             chunk.percentage=100;
         })
     }else{
-        let requestList=uploadFileChunks.filter(item=>{
+        let requestList=uploadFileChunks.map((chunk,index)=>{
+            chunk.fileHash=fileInfo.hash;
+            chunk.hash=fileInfo.hash+fileInfo.splitFlag+index;
+            chunk.ext=fileInfo.ext;
+
+            return chunk;
+        }).filter(item=>{
             let existChunk=uploadedList.includes(item.hash);
             if(existChunk){
                 item.percentage=100;
             }
 
             return !existChunk;
-        }).map((chunk,index)=>{
-            chunk.fileHash=fileInfo.hash;
-            chunk.hash=fileInfo.hash+fileInfo.splitFlag+index;
-            chunk.ext=fileInfo.ext;
-
-            return chunk;
         })
 
         submitUpload(requestList);
@@ -203,13 +207,13 @@ function submitUpload(fileQueue:Array<fileChunk>){
         success: uploadSuccess
     }).then((resList) => {
         let res = resList[0];
-        let { data, status } = res.data;
-        if (data && status && status.code == 0) {
+        let { status } = res.data;
+        if (status && status.code == 0) {
             mergeFileHandler({
-                filename: data.filename, 
+                filename: fileInfo.hash, 
                 flag: fileInfo.splitFlag,
                 size: fileInfo.chunkSize,
-                ext : data.ext
+                ext : fileInfo.ext
             });
         }
     }).catch((err) => {
