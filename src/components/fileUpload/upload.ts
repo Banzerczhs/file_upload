@@ -1,5 +1,6 @@
 import axios from "axios";
 import type {AxiosProgressEvent} from "axios";
+import calculateHashSample from "./hash";
 
 export type rawChunk={
     chunk: Blob,
@@ -40,22 +41,7 @@ export const createFileChunk=function(file:File,size:number):Array<rawChunk>{
 
 
 export const createFileHash=function(filesChunks:Array<rawChunk>,setProgress:(percentage:number)=>void):Promise<string>{
-    let hashWorker=new Worker('./hash.js');
-    hashWorker.postMessage({filesChunks});
-
-    return new Promise((resolve,reject)=>{
-        hashWorker.onmessage=function(event){
-            let {hash,percentage}=event.data;
-            setProgress(percentage);
-            if(hash){
-                resolve(hash);
-            }
-        }
-
-        hashWorker.addEventListener('error',function(err){
-            reject(err.message);
-        })
-    })
+    return calculateHashSample(filesChunks,setProgress);
 }
 
 

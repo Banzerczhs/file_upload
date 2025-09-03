@@ -1,5 +1,6 @@
 <template>
     <div class="file_upload">
+        <div><input type="text"></div>
         <div class="upload_action">
             <el-upload ref="uploadRef" class="avatar-uploader" :show-file-list="false" :on-change="fileChange" :auto-upload="false"
                 :multiple="false">
@@ -46,8 +47,8 @@
 
 <script lang="ts" setup>
 import { ElUpload, ElIcon, ElButton, ElProgress, ElMessage } from "element-plus";
-import type { UploadProps, UploadInstance } from "element-plus";
-import { Plus,Document } from "@element-plus/icons";
+import type { UploadProps, UploadInstance, UploadFile } from "element-plus";
+import { Plus,Document } from "@element-plus/icons-vue";
 import { computed, reactive, ref } from 'vue'
 
 import { createFileChunk, uploadFileHandler, mergeFileHandler, createFileHash, verifyUpload } from "./upload";
@@ -61,7 +62,7 @@ let rawFileName=ref('');
 let fileInfo={
     splitFlag : '&-&',
     ext : '',
-    chunkSize : 1024 * 6000,
+    chunkSize : 1024 * 2048,
     hash : ''
 }
 
@@ -75,11 +76,12 @@ let totalPercentage = computed(() => {
     return parseInt((loaded / uploadFileChunks.length).toFixed(2));
 })
 
-const fileChange: UploadProps['onChange'] = async (uploadFile) => {
+const fileChange: UploadProps['onChange'] = async (uploadFile:UploadFile) => {
     if (uploadFile.raw !== undefined) {
         uploadFileChunks.length = 0;
         hashPercentage.value=0;
         let rawFile = uploadFile.raw;
+        console.log('-------rawFile------', rawFile);
         rawFileName.value=rawFile.name;
         let chunks = createFileChunk(rawFile, fileInfo.chunkSize);
         try{
@@ -154,17 +156,20 @@ const abortUpload = ()=>{
 
 const beforeUpload=async ()=>{
     hashPercentage.value=0;
-    uploadFileChunks.forEach(chunk=>{
-        chunk.percentage=0;
-    })
     if(!uploadFileChunks.length){
         return;
     }
+    uploadFileChunks.forEach(chunk=>{
+        chunk.percentage=0;
+    })
 
     let chunks=uploadFileChunks.map(item=>({chunk : item.chunk,size:item.size}));
     fileInfo.hash = await createFileHash(chunks, function (percentage) {
         hashPercentage.value = percentage;
+        console.log('-----calculate hash-------',percentage);
     });
+
+    console.log('-------hash end------');
 
     fileInfo.ext=extractExt(rawFileName.value);
     let verify = await verifyUpload(fileInfo.ext,fileInfo.hash);

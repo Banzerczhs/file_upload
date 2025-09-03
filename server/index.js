@@ -102,6 +102,9 @@ const app = https.createServer(
                             UPLOAD_DIR,
                             fileInfo.filename+fileInfo.ext
                         );
+                        if(!fs.existsSync(UPLOAD_DIR)){
+                            fs.mkdirSync(UPLOAD_DIR);
+                        }
                         if (!fs.existsSync(chunkDir)) {
                             fs.mkdirSync(chunkDir);
                         }

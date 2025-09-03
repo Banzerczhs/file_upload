@@ -12,5 +12,8 @@
   "license": "ISC",
   "devDependencies": {
     "multiparty": "^4.2.3"
+  },
+  "dependencies": {
+    "supervisor": "^0.12.0"
   }
 }
