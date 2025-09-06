@@ -1,6 +1,7 @@
 import axios from "axios";
 import type {AxiosProgressEvent} from "axios";
 import calculateHashSample from "./hash";
+import {sendRequest} from "./request";
 
 export type rawChunk={
     chunk: Blob,
@@ -14,6 +15,7 @@ export type fileChunk={
     fileHash: string,
     size: number,
     ext: string,
+    error: boolean,
     controller?: AbortController
 }
 
@@ -60,30 +62,23 @@ export const uploadFileHandler=async function(config:{
             }
         }]);
     }
-    let ps=fileQueue.map((item)=>{
+    let list = fileQueue.map((item)=>{
         let formData=new FormData();
         formData.append('chunk',item.chunk);
         formData.append('hash',item.hash);
         formData.append('filename',item.fileHash);
         formData.append('ext',item.ext);
 
-        return {formData,item};
-    }).map(({formData,item})=>{
-        let signal=item.controller?.signal;
-        return axios.post('/api/uploadFile',formData,{
-            signal,
-            onUploadProgress : createProgressHandler(item)
-        }).then((res)=>{
-            if(success){
-                let {data}=res.data;
-                success(data);
-            }
+        return {formData,item,createProgressHandler};
+    })
 
-            return res;
-        });
-    });
-
-    return await Promise.all(ps);
+    let res = await sendRequest(list,10,success);
+    try{
+        return Promise.all(res);
+    }catch(e){
+        throw e;
+    }
+   
 }
 
 export const verifyUpload = (ext:string, fileHash:string) => {

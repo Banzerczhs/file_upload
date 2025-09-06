@@ -1,10 +1,11 @@
-const https = require('https');
+const http2 = require('http2');
 const fs = require('fs');
 const path = require('path');
 const urlParse = require('url');
 const multiparty = require('multiparty');
+const { UPLOAD_DIR } = require('./paths');
 
-const UPLOAD_DIR = path.resolve(__dirname, './uploadFile');
+const { start } = require('./scanChunk');
 
 function parseFile(form, req) {
     return new Promise(function (resolve, reject) {
@@ -86,10 +87,11 @@ function createUploadedList(filePath){
 }
 
 
-const app = https.createServer(
+const server = http2.createSecureServer(
     {
         key: fs.readFileSync(path.resolve(__dirname, './ca/key.pem')),
-        cert: fs.readFileSync(path.resolve(__dirname, './ca/cert.pem'))
+        cert: fs.readFileSync(path.resolve(__dirname, './ca/cert.pem')),
+        allowHTTP1: true
     },
     function (req, res) {
         let urlSchema = urlParse.parse(req.url, true);
@@ -100,7 +102,7 @@ const app = https.createServer(
                     .then((fileInfo) => {
                         let chunkDir = path.resolve(
                             UPLOAD_DIR,
-                            fileInfo.filename+fileInfo.ext
+                            fileInfo.filename
                         );
                         if(!fs.existsSync(UPLOAD_DIR)){
                             fs.mkdirSync(UPLOAD_DIR);
@@ -108,6 +110,9 @@ const app = https.createServer(
                         if (!fs.existsSync(chunkDir)) {
                             fs.mkdirSync(chunkDir);
                         }
+                        // if(Math.random() * 10 + 1 < 5){
+                        //     throw new Error('上传出错');
+                        // }
                         createChunkFile({
                             chunk: fileInfo.chunk,
                             name: path.resolve(chunkDir, fileInfo.hash)
@@ -140,18 +145,21 @@ const app = https.createServer(
                                     }
                                 })
                             );
-                        })                        
+                        })
+                        return fileInfo;         
                     })
                     .catch((err) => {
-                        console.log('----upload Failed-----',err);
-                        res.writeHead(200, {
+                        console.log('------upload file err-----',err);
+                        res.writeHead(500, {
                             'Content-Type': 'application/json;charset=utf-8'
                         });
                         res.end(
                             JSON.stringify({
-                                status: {
-                                    code: 1001,
-                                    msg: 'Upload Failed!'
+                                data: {
+                                    status: {
+                                        code: 1001,
+                                        msg: 'Upload Failed!'
+                                    }
                                 }
                             })
                         );
@@ -162,7 +170,7 @@ const app = https.createServer(
                 req.on('data', function (chunk) {
                     let info = JSON.parse(chunk.toString());
                     let { flag, filename, size, ext } = info;
-                    let merge_dir = path.resolve(UPLOAD_DIR,filename+ext);
+                    let merge_dir = path.resolve(UPLOAD_DIR,filename);
                     fs.readdir(merge_dir, function (errMsg, files) {
                         mergeFile({
                             file : {list:files,flag,size},
@@ -202,8 +210,8 @@ const app = https.createServer(
             if (req.url === "/verify") {
                 req.on('data',function(data){
                     let info = JSON.parse(data.toString());
-                    const { fileHash, ext } = info;
-                    const resource=`${fileHash}${ext}`;
+                    const { fileHash } = info;
+                    const resource=`${fileHash}`;
                     const filePath = path.resolve(UPLOAD_DIR, resource,resource);
                     if (fs.existsSync(filePath)) {
                         res.end(
@@ -234,6 +242,7 @@ const app = https.createServer(
 
 const port = 7070;
 
-app.listen(port, function () {
+server.listen(port, function () {
+    start();
     console.log('----https listen to port----', port);
 });

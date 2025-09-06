@@ -33,11 +33,11 @@
                 <el-progress :percentage="totalPercentage"></el-progress>
             </div>
             <div class="progress-list">
-                <template v-for="item in uploadFileChunks">
+                <template :key="item.hash" v-for="item in uploadFileChunks">
                     <div class="list-item">
                         <span class="item-name">{{ item.hash }}</span>
                         <span class="item-size">{{ item.size }}B</span>
-                        <el-progress class="progress-stripe" :percentage="item.percentage" />
+                        <el-progress :status="item.error ? 'exception' : ''" class="progress-stripe" :percentage="item.percentage" />
                     </div>
                 </template>
             </div>
@@ -72,7 +72,13 @@ const extractExt = (filename:string) =>
 
 let totalPercentage = computed(() => {
     if (!uploadFileChunks.length) return 0;
-    const loaded = uploadFileChunks.map(item => item.percentage).reduce((acc, cur) => acc + cur, 0);
+    const loaded = uploadFileChunks.map(item => {
+        if(!item.error){
+            return item.percentage;
+        }else{
+            return 0;
+        }
+    }).reduce((acc, cur) => acc + cur, 0);
     return parseInt((loaded / uploadFileChunks.length).toFixed(2));
 })
 
@@ -92,6 +98,7 @@ const fileChange: UploadProps['onChange'] = async (uploadFile:UploadFile) => {
                     fileHash: '',
                     hash: rawFile.name+fileInfo.splitFlag+index,
                     percentage: 0,
+                    error: false,
                     size,
                     ext: '',
                     controller: abortController
@@ -107,7 +114,7 @@ const factoryProgress = (item: fileChunk): progressHandler => {
     return (progressEvent) => {
         let aborted=item.controller?.signal.aborted;
         if (!aborted&&progressEvent.total) {
-            item.percentage = Math.ceil((progressEvent.loaded / progressEvent.total) * 100);
+            item.percentage = Math.floor((progressEvent.loaded / progressEvent.total) * 100);
         }
     }
 }
@@ -134,6 +141,7 @@ const restoreUpload = ()=>{
                     return false;
                 }
             });
+            console.log('------uploadList-----', requestChunks);
             submitUpload(requestChunks);
         }else{
             ElMessage({
@@ -166,10 +174,7 @@ const beforeUpload=async ()=>{
     let chunks=uploadFileChunks.map(item=>({chunk : item.chunk,size:item.size}));
     fileInfo.hash = await createFileHash(chunks, function (percentage) {
         hashPercentage.value = percentage;
-        console.log('-----calculate hash-------',percentage);
     });
-
-    console.log('-------hash end------');
 
     fileInfo.ext=extractExt(rawFileName.value);
     let verify = await verifyUpload(fileInfo.ext,fileInfo.hash);
@@ -199,7 +204,7 @@ const beforeUpload=async ()=>{
 
             return !existChunk;
         })
-
+        
         submitUpload(requestList);
     }
 }
@@ -210,6 +215,7 @@ function submitUpload(fileQueue:Array<fileChunk>){
         createProgressHandler: factoryProgress,
         success: uploadSuccess
     }).then((resList) => {
+        resList = resList.filter(v=>!!v);
         let res = resList[0];
         let { status } = res.data;
         if (status && status.code == 0) {
@@ -221,7 +227,8 @@ function submitUpload(fileQueue:Array<fileChunk>){
             });
         }
     }).catch((err) => {
-        console.log('---error-----', err)
+        let {message,index,originalError} = err;
+        console.log('------error-----', message,index,originalError);
     });
 }
 </script>
